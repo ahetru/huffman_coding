@@ -49,6 +49,7 @@ u8 map_symbol_to_occurrence(const char* filename, hashtable_item table[256])
 	while((c = fgetc(f)) != EOF)
 	{
 		table[c].value += 1;
+		printf("symbol: %c: %d\n",table[c].key, table[c].value);
 	}
 
 	qsort(table, 256, sizeof(hashtable_item), cmp);
@@ -69,19 +70,19 @@ int main(int argc, char **argv)
 {
 	if (argc !=2)
 	{
-		printf("Usage: %s <file_to_compress>\n", argv[0]);
+		printf("Usage: %s <filename>\n", argv[0]);
 		return 0;
 	}
 
-	hashtable_item symbol_to_occurrence_mapping[256];
-	init_table(symbol_to_occurrence_mapping);
+	hashtable_item symbols_table[256];
+	init_table(symbols_table);
 	
-	if (map_symbol_to_occurrence(argv[1], symbol_to_occurrence_mapping))
+	if (map_symbol_to_occurrence(argv[1], symbols_table))
 		return 1;
 
 	for(int i = 0; i < 256; ++i)
-		if(symbol_to_occurrence_mapping[i].value) 
-			printf("occurrence of %c: %d\n", (char)i,  symbol_to_occurrence_mapping[i].value);
+		if(symbols_table[i].value) 
+			printf("occurrence of %u: %d\n", symbols_table[i].key,  symbols_table[i].value);
 
 
 	return 0;
