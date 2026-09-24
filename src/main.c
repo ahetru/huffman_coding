@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "types.h"
 
 
@@ -11,7 +12,22 @@
 //
 // encoder le texte
 
+int cmp(const void *a, const void *b)
+{
+	int x = *(const int *)a;
+	int y = *(const int *)b;
+	
+	if (x < y)
+		return 1;
+	if (y < x)
+		return -1;
+	return 0;
+}
 
+/* u32* sort_symbols(u32 symbols[256]) */
+/* { */
+/* 	//TODO: implement a custom sorting algorithm later */
+/* } */
 
 u8 map_symbol_to_occurrence(const char* filename, u32 symbol_to_occurrence_mapping[256])
 {
@@ -26,6 +42,7 @@ u8 map_symbol_to_occurrence(const char* filename, u32 symbol_to_occurrence_mappi
 	while((c = fgetc(f)) != EOF)
 		symbol_to_occurrence_mapping[c] += 1;
 
+	qsort(symbol_to_occurrence_mapping, 256, sizeof(u32), cmp);
 	fclose(f);
 	return 0;
 }
@@ -46,7 +63,8 @@ int main(int argc, char **argv)
 
 	for(int i = 0; i < 256; ++i)
 		if(symbol_to_occurrence_mapping[i]) 
-			printf("ocurrence of %c: %d\n", (char)i,  symbol_to_occurrence_mapping[i]);
+			printf("occurrence of %c: %d\n", (char)i,  symbol_to_occurrence_mapping[i]);
+
 
 	return 0;
 }
