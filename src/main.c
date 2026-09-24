@@ -12,24 +12,31 @@
 //
 // encoder le texte
 
-int cmp(const void *a, const void *b)
-{
-	int x = *(const int *)a;
-	int y = *(const int *)b;
-	
-	if (x < y)
-		return 1;
-	if (y < x)
-		return -1;
-	return 0;
-}
-
 /* u32* sort_symbols(u32 symbols[256]) */
 /* { */
 /* 	//TODO: implement a custom sorting algorithm later */
 /* } */
 
-u8 map_symbol_to_occurrence(const char* filename, u32 symbol_to_occurrence_mapping[256])
+typedef struct 
+{
+	u8 key;
+	u32 value;
+} hashtable_item;
+
+
+int cmp(const void *a, const void *b)
+{
+	hashtable_item x = *(const hashtable_item*)a;
+	hashtable_item y = *(const hashtable_item*)b;
+	
+	if (x.value< y.value)
+		return 1;
+	if (y.value < x.value)
+		return -1;
+	return 0;
+}
+
+u8 map_symbol_to_occurrence(const char* filename, hashtable_item table[256])
 {
 	FILE *f = fopen(filename, "r");
 	if (f == NULL)
@@ -40,11 +47,22 @@ u8 map_symbol_to_occurrence(const char* filename, u32 symbol_to_occurrence_mappi
 
 	int c;	
 	while((c = fgetc(f)) != EOF)
-		symbol_to_occurrence_mapping[c] += 1;
+	{
+		table[c].value += 1;
+	}
 
-	qsort(symbol_to_occurrence_mapping, 256, sizeof(u32), cmp);
+	qsort(table, 256, sizeof(hashtable_item), cmp);
 	fclose(f);
 	return 0;
+}
+
+void init_table(hashtable_item table[256])
+{
+	for (u16 i = 0; i < 256; ++i)
+	{
+		table[i].key = (u8)i;
+		table[i].value = 0;
+	}
 }
 
 int main(int argc, char **argv)
@@ -55,15 +73,15 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	u32 symbol_to_occurrence_mapping[256];
-	memset(&symbol_to_occurrence_mapping, 0, 256 * sizeof(u32));
+	hashtable_item symbol_to_occurrence_mapping[256];
+	init_table(symbol_to_occurrence_mapping);
 	
 	if (map_symbol_to_occurrence(argv[1], symbol_to_occurrence_mapping))
 		return 1;
 
 	for(int i = 0; i < 256; ++i)
-		if(symbol_to_occurrence_mapping[i]) 
-			printf("occurrence of %c: %d\n", (char)i,  symbol_to_occurrence_mapping[i]);
+		if(symbol_to_occurrence_mapping[i].value) 
+			printf("occurrence of %c: %d\n", (char)i,  symbol_to_occurrence_mapping[i].value);
 
 
 	return 0;
