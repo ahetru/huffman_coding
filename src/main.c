@@ -4,161 +4,164 @@
 #include <unistd.h>
 #include "huffman_coding.h"
 
-//TODO: all of this needs a proper error handling especially on syscall fails.
-
 int cmp(const void *a, const void *b)
 {
-	t_symbol	x = *(const t_symbol*)a;
-	t_symbol	y = *(const t_symbol*)b;
+	const t_symbol	*x = *(const t_symbol**)a;
+	const t_symbol	*y = *(const t_symbol**)b;
 	
-	if (x.frequency > y.frequency)
+	if (x->frequency > y->frequency)
 		return 1;
-	if (y.frequency > x.frequency)
+	if (y->frequency > x->frequency)
 		return -1;
 	return 0;
 }
 
+void free_arr(t_symbol **arr, u16 count)
+{
+	for (u16 i = 0; i < count; ++i)
+		free(arr[i]);
+	free(arr);
+}
 
-t_dynamic_array	*set_symbols_frequency(const char* filename)
+void free_tree(t_symbol *tree)
+{
+	if (!tree)
+		return;
+	free_tree(tree->left);
+	free_tree(tree->right);
+	free(tree);
+}
+
+void free_on_error(t_parser *data)
+{
+	for (u16 i = 0; i < data->count; ++i)
+		free_tree(data->arr_symbols[i]);
+	free(data->arr_symbols);
+}
+
+u8 parse_file_and_set_symbols(const char* filename, t_parser *data)
 {
 
 	u64 frequency[MAX_SYMBOLS];
 	memset(frequency, 0, sizeof(frequency));
-	u16 symbols_count = 0;
 	FILE *f = fopen(filename, "r");
 	if (f == NULL)
 	{
 		perror("Could not open file");
-		return NULL;
+		return 1;
 	}
 
 	int c;	
 	while((c = fgetc(f)) != EOF)
+	{
+		if (frequency[c] == 0)
+			data->count++;
 		frequency[c]++;
-
-	/* qsort(symbols, 256, sizeof(t_symbol), cmp); */
-	t_dynamic_array *arr_symbols = calloc(1, sizeof(t_dynamic_array));
+	}
+	t_symbol ** arr_symbols = malloc(sizeof(t_symbol*) * data->count);
 	if (arr_symbols == NULL)
 	{
 		fclose(f);
-		return NULL;
+		return 1;
 	}
+	u16 j = 0;
 	for (u16 i = 0; i < MAX_SYMBOLS; ++i)
 		if (frequency[i])
 		{
-			t_symbol s;
-			s.value = i;
-			s.frequency = frequency[i];
-			s.prefix_code = 0;
-			s.code_length = 0;
-			s.left = NULL;
-			s.right = NULL;
-			append_dynamic_array(arr_symbols, s);
-			++symbols_count;
+			t_symbol *s = malloc(sizeof(t_symbol));
+			if (!s)
+			{
+				free_arr(arr_symbols, j);
+				exit(1);
+			}
+			s->value = i;
+			s->frequency = frequency[i];
+			s->prefix_code = 0;
+			s->code_length = 0;
+			s->left = NULL;
+			s->right = NULL;
+			arr_symbols[j] = s;
+			j++;
 		}
-	//TODO:does not close file if malloc or realloc fail
 	fclose(f);
-	return arr_symbols;
+	data->arr_symbols = arr_symbols;
+	return 0;
 }
 
-t_symbol cpy_symbol(t_symbol src)
-{
-	t_symbol cpy;
-	cpy.value = src.value;
-	cpy.frequency = src.frequency;
-	cpy.prefix_code =src.prefix_code;
-	cpy.code_length = src.code_length;
-	cpy.left = src.left;
-	cpy.right = src.right;
-	return cpy;
-}
 
 void print_tree(t_symbol *symbol)
 {
 	if (!symbol)
 		return;
-	
-    printf("Node: %c | ", symbol->value);
-    if (symbol->left)
-        printf("Left child: %c | ", symbol->left->value);
-    else
-        printf("Left child: NULL | ");
 
-    if (symbol->right)
-        printf("Right child: %c", symbol->right->value);
-    else
-        printf("Right child: NULL");
+	if (symbol->value == INTERNAL_NODE)
+			printf("Node: internal node with p: %p | ", symbol);
+	else
+		printf("Node: %c | ", symbol->value);
+	if (symbol->left)
+		if (symbol->left->value == INTERNAL_NODE)
+			printf("Left child: internal node with p: %p | ", symbol->left);
+		else
+			printf("Left child: %c | ", symbol->left->value);
+	else
+		printf("Left child: NULL | ");
 
-    printf("\n");
+	if (symbol->right)
+		if (symbol->right->value == INTERNAL_NODE)
+			printf("Right child: internal node with p: %p | ", symbol->right);
+		else
+			printf("Right child: %c", symbol->right->value);
+	else
+		printf("Right child: NULL");
 
-    print_tree(symbol->left);
-    print_tree(symbol->right);	
+	printf("\n");
+	print_tree(symbol->left);
+	print_tree(symbol->right);	
+}
+
+t_symbol *build_huffman_tree(t_parser *data)
+{
+	if (data == NULL || data->count == 0)
+		return NULL;
+	while(data->count > 1)
+	{
+		qsort(data->arr_symbols,data->count, sizeof(*data->arr_symbols), cmp);
+
+		t_symbol *root = malloc(sizeof(t_symbol));
+		if (root == NULL)
+		{
+			free_on_error(data);
+			exit(1);
+		}
+		t_symbol *left = data->arr_symbols[0];
+		t_symbol *right = data->arr_symbols[1]; 
+		
+		root->value = INTERNAL_NODE;
+		root->frequency = left->frequency + right->frequency;
+		root->prefix_code = 0;
+		root->code_length = 0;
+		root->left = left;
+		root->right = right;
+
+		data->arr_symbols[0] = root;
+
+		for (u16 i = 1; i < data->count - 1; ++i)
+			data->arr_symbols[i] = data->arr_symbols[i + 1];
+		data->count--;
+	}
+	t_symbol *root = data->arr_symbols[0];
+	free(data->arr_symbols);
+
+	return root;
 }
 
 void print_symbol(t_symbol *s)
 {
-	u8 is_leaf = !(s->left) && !(s->right);
-	printf("value: %c, frequency: %lu, prefix_code: %u, code_length: %u me: %p left: %p, right: %p, is_leaf: %u\n", s->value, s->frequency, s->prefix_code, s->code_length, s, s->left, s->right, is_leaf);
-}
-
-void print_dynamic_array(t_dynamic_array *da)
-{
-	printf("******************************DELIMETER******************************\n");
-	for(u16 i = 0; i < da->count; ++i)
-		print_symbol(&da->symbols[i]);
-	printf("******************************DELIMETER******************************\n");
-}
-
-
-
-/* t_symbol *build_huffman_tree(t_dynamic_array *da) */
-/* { */
-/* 	t_dynamic_array *result = calloc(1, sizeof(t_dynamic_array)); */
-
-/* 	u16 i = 0; */
-/* 	t_symbol *s; */
-/* 	while(da->count - i >= 2) */
-/* 	{ */
-/* 		qsort(da->symbols + i, da->count - i, sizeof(t_symbol), cmp); */
-/* 		/1* printf("current i value: %u\n", i); *1/ */
-/* 		/1* print_dynamic_array(da); *1/ */
-/* 		/1* printf("first element: %c\n", da->symbols[i].value); *1/ */
-/* 		t_symbol lowest_frequency_symbol 	= cpy_symbol(da->symbols[i]); */
-/* 		t_symbol second_lowest_frequency_symbol	= cpy_symbol(da->symbols[i + 1]); */
-/* 		append_dynamic_array(result, lowest_frequency_symbol); */
-/* 		append_dynamic_array(result, second_lowest_frequency_symbol); */
-	
-		
-/* 		t_symbol s; */
-/* 		s.value = 6400;// TODO:find a value to define internal node or path node */
-/* 		s.frequency = lowest_frequency_symbol.frequency + second_lowest_frequency_symbol.frequency; */
-/* 		s.prefix_code = 0; */
-/* 		s.code_length = 0; */
-/* 		s.left = &result->symbols[i]; */
-/* 		s.right = &result->symbols[i+1]; */
-/* 		da->symbols[i + 1] = s; */
-/* 		/1* append_dynamic_array(result, s); *1/ */
-/* 		++i; */ 
-/* 	} */
-/* 	return result; */
-/* } */
-
-t_symbol *build_huffman_tree(t_dynamic_array *da)
-{
-	t_dynamic_array *result = calloc(1, sizeof(t_dynamic_array));
-
-	u16 i = 0;
-	t_symbol *root;
-	while(da->count - i >= 2)
-	{
-		qsort(da->symbols + i, da->count - i, sizeof(t_symbol), cmp);
-		t_symbol lowest_frequency_symbol 	= cpy_symbol(da->symbols[i]);
-		t_symbol second_lowest_frequency_symbol	= cpy_symbol(da->symbols[i + 1]);
-		
-		
-		++i; 
-	}
-	return root;
+	if (s->value == INTERNAL_NODE)
+		printf("value: internal node, ");
+	else
+		printf("value: %c, ", s->value);
+	printf("frequency: %lu\n", s->frequency);
 }
 
 int main(int argc, char **argv)
@@ -168,23 +171,19 @@ int main(int argc, char **argv)
 		printf("Usage: %s <filename>\n", argv[0]);
 		return 0;
 	}
-	
-	t_dynamic_array *da_symbols = set_symbols_frequency(argv[1]);
-	if (da_symbols == NULL)
+	t_parser data = {0};
+	parse_file_and_set_symbols(argv[1], &data);
+	if (data.arr_symbols == NULL)
 		return 1;
 
-	/* printf("da count: %u\n", da_symbols->count); */
-	/* qsort(da_symbols->symbols, da_symbols->count, sizeof(t_symbol), cmp); */
-	/* for(int i = 0; i < da_symbols->count; ++i) */
-	/* 	printf("frequency of %c: %d\n", da_symbols->symbols[i].value,  da_symbols->symbols[i].frequency); */
+	for (u16 i = 0; i < data.count; ++i)
+		print_symbol(data.arr_symbols[i]);
+	t_symbol *huffman_tree = build_huffman_tree(&data);
+	if (!huffman_tree)
+		return 1;
 
-	t_dynamic_array *huffman_tree = build_huffman_tree(da_symbols);
-	/* print_dynamic_array(da_symbols); */
-	print_dynamic_array(huffman_tree);
-	/* print_tree(&huffman_tree->symbols[huffman_tree->count - 1]); */
-	free(da_symbols->symbols);
-	free(da_symbols);
-	free(huffman_tree->symbols);
-	free(huffman_tree);
+	print_tree(huffman_tree);
+	free_tree(huffman_tree);
+
 	return 0;
 }

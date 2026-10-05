@@ -12,8 +12,8 @@ typedef int16_t		i16;
 typedef int32_t		i32;
 typedef int64_t		i64;
 
-#define SYMBOL_UNSET	65535
 #define MAX_SYMBOLS	65535
+#define INTERNAL_NODE	65534
 
 // TODO: Change s_symbol to s_node
 typedef struct s_symbol
@@ -26,13 +26,10 @@ typedef struct s_symbol
 	struct s_symbol	*right;
 } t_symbol;
 
-typedef struct s_dynamic_array
+typedef struct s_parser
 {
-	t_symbol	*symbols;
-	u16		count;
-	u16		capacity;
-} t_dynamic_array;
-
-void append_dynamic_array(t_dynamic_array *da, t_symbol symbol);
+	t_symbol ** arr_symbols;
+	u16 count;
+} t_parser;
 
 #endif
