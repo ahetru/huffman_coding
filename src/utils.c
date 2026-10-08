@@ -86,5 +86,4 @@ void print_code(u16 code, u8 length)
 		else
 			write(1, "0", 1);
 	}
-	printf("\n");
 }
