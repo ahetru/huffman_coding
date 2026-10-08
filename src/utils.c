@@ -76,3 +76,15 @@ void	print_symbol(t_symbol *s)
 		printf("value: %c, ", s->value);
 	printf("frequency: %lu\n", s->frequency);
 }
+
+void print_code(u16 code, u8 length)
+{
+	for (u8 i = 0; i < length; ++i)
+	{
+		if (code & (1 << i))
+			write(1, "1", 1);
+		else
+			write(1, "0", 1);
+	}
+	printf("\n");
+}

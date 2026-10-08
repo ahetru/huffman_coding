@@ -1,7 +1,3 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include "huffman_coding.h"
 
 u8	parse_file_and_set_symbols(const char* filename, t_parser *data)
@@ -90,6 +86,21 @@ t_symbol	*build_huffman_tree(t_parser *data)
 	return root;
 }
 
+void	set_prefix_codes(t_symbol *huffman_tree, u16 code, u8 code_length)
+{
+	if (huffman_tree == NULL)
+		return ;
+	huffman_tree->prefix_code = code;
+	huffman_tree->code_length = code_length;
+	printf("code for %c: ", huffman_tree->value);
+	sleep(1);
+	print_code(code, code_length);
+	printf("\n");
+
+	set_prefix_codes(huffman_tree->left, code | (1 << code_length), code_length + 1);
+	set_prefix_codes(huffman_tree->right, code & ~ (1 << code_length), code_length + 1);
+}
+
 int	main(int argc, char **argv)
 {
 	if (argc != 2)
@@ -108,7 +119,8 @@ int	main(int argc, char **argv)
 	if (!huffman_tree)
 		return 1;
 
-	print_tree(huffman_tree);
+	/* print_tree(huffman_tree); */
+	set_prefix_codes(huffman_tree, 0, 0);
 	free_tree(huffman_tree);
 
 	return 0;

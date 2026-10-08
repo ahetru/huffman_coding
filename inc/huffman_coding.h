@@ -41,4 +41,6 @@ void	free_tree(t_symbol *tree);
 void	free_on_error(t_parser *data);
 void	print_tree(t_symbol *symbol);
 void	print_symbol(t_symbol *s);
+void	print_code(u16 code, u8 length);
+
 #endif
