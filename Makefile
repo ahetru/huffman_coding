@@ -7,7 +7,7 @@ OBJ_DIR = obj
 INC_DIR = inc
 
 SRC = $(SRC_DIR)/main.c \
-      $(SRC_DIR)/dynamic_array.c
+      $(SRC_DIR)/utils.c \
 
 OBJ = $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o) \
 
