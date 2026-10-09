@@ -1,14 +1,19 @@
 #include "huffman_coding.h"
 
-u8	parse_file_and_set_symbols(const char* filename, t_parser *data)
+/* static u32 count = 0; */
+/* void	count_nodes(t_symbol *s) */
+/* { */
+/* 	if ( s == NULL) */
+/* 		return ; */
+/* 	count++; */
+/* 	count_nodes(s->left); */	
+/* 	count_nodes(s->right); */	
+
+/* } */
+
+u8	parse_file_and_set_symbols(FILE *f, t_parser *data)
 {
 	u64 frequency[MAX_SYMBOLS] = {0};
-	FILE *f = fopen(filename, "r");
-	if (f == NULL)
-	{
-		perror("Could not open file");
-		return 1;
-	}
 
 	int c;	
 	while((c = fgetc(f)) != EOF)
@@ -29,7 +34,7 @@ u8	parse_file_and_set_symbols(const char* filename, t_parser *data)
 		if (frequency[i])
 		{
 			t_symbol *s = malloc(sizeof(t_symbol));
-			if (!s)
+			if ( s == NULL)
 			{
 				free_arr(arr_symbols, j);
 				exit(1);
@@ -48,7 +53,6 @@ u8	parse_file_and_set_symbols(const char* filename, t_parser *data)
 
 	return 0;
 }
-
 
 t_symbol	*build_huffman_tree(t_parser *data)
 {
@@ -91,19 +95,40 @@ void	set_prefix_codes(t_symbol *huffman_tree, u16 code, u8 code_length)
 	if (huffman_tree == NULL)
 		return ;
 
-	huffman_tree->prefix_code = code;
-	huffman_tree->code_length = code_length;
-
-	if (huffman_tree->left == NULL && huffman_tree->right == NULL)
+	if (huffman_tree->value != INTERNAL_NODE)
 	{
-		dprintf(1, "code for %c: ", huffman_tree->value);
-		print_code(code, code_length);
-		dprintf(1, "\n");
+		huffman_tree->prefix_code = code;
+		huffman_tree->code_length = code_length ? code_length : 1;
 	}
+
+	/* if (huffman_tree->left == NULL && huffman_tree->right == NULL) */
+	/* { */
+	/* 	dprintf(1, "code for %c: ", huffman_tree->value); */
+	/* 	print_code(code, code_length); */
+	/* 	dprintf(1, "\n"); */
+	/* } */
 
 	set_prefix_codes(huffman_tree->left, code | (1 << code_length), code_length + 1);
 	set_prefix_codes(huffman_tree->right, code & ~ (1 << code_length), code_length + 1);
 }
+
+void	set_dictionnary(t_prefix_code dictionnary[MAX_SYMBOLS], t_symbol *tree)
+{
+	if (tree == NULL)
+		return ;
+
+	if (tree->value != INTERNAL_NODE)
+	{
+		dictionnary[tree->value].code = tree->prefix_code;
+		dictionnary[tree->value].length = tree->code_length;
+	}
+	/* printf("value: %c code: %u, length: %u\n",tree->value, dictionnary[tree->value].code, dictionnary[tree->value].length); */
+	/* printf("Hello World!\n"); */
+
+	set_dictionnary(dictionnary, tree->left);
+	set_dictionnary(dictionnary, tree->right);
+}
+/* u8 encode_file(FILE *f, *t_bitstream bitstream, ) */
 
 int	main(int argc, char **argv)
 {
@@ -112,20 +137,47 @@ int	main(int argc, char **argv)
 		printf("Usage: %s <filename>\n", argv[0]);
 		return 0;
 	}
+
+	FILE *f = fopen(argv[1], "r");
+	if (f == NULL)
+	{
+		perror("Could not open file");
+		return 1;
+	}
+
 	t_parser data = {0};
-	parse_file_and_set_symbols(argv[1], &data);
+	parse_file_and_set_symbols(f, &data);
 	if (data.arr_symbols == NULL)
 		return 1;
 
-	/* for (u16 i = 0; i < data.count; ++i) */
-	/* 	print_symbol(data.arr_symbols[i]); */
 	t_symbol *huffman_tree = build_huffman_tree(&data);
-	if (!huffman_tree)
+	if (huffman_tree == NULL)
 		return 1;
-
-	/* print_tree(huffman_tree); */
+	
 	set_prefix_codes(huffman_tree, 0, 0);
+	t_prefix_code value_to_prefix_code[MAX_SYMBOLS] = {0};
+	set_dictionnary(value_to_prefix_code, huffman_tree);
+
+	for (u16 i = 0; i < MAX_SYMBOLS; ++i)
+		if (value_to_prefix_code[i].length)
+		{
+			dprintf(1, "value %c: ", (char)i);
+			print_code(value_to_prefix_code[i].code, value_to_prefix_code[i].length);
+			dprintf(1, "\n");
+		}
+
+	t_bitstream bitstream = {0};
+	if (init_bitstream(&bitstream) == 1)
+	{
+		printf("memory allocation failed on bitstream buffer\n");
+		free_tree(huffman_tree);
+		return 1;
+	}
+	
+	/* encode_file(f, &bitstream, huffman_tree); */
 	free_tree(huffman_tree);
 
 	return 0;
 }
+
+

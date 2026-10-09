@@ -87,3 +87,15 @@ void print_code(u16 code, u8 length)
 			write(1, "0", 1);
 	}
 }
+
+u8 init_bitstream(t_bitstream *bitstream)
+{
+
+	bitstream->buffer = calloc(256, sizeof(u8));
+	if (bitstream->buffer == NULL)
+		return 1;
+	bitstream->bit_pos = 0;
+	bitstream->bytes_written = 0;
+	bitstream->size = 256;
+	return 0;
+}

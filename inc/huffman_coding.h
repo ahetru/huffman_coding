@@ -35,6 +35,21 @@ typedef struct s_parse
 	u16		count;
 } t_parser;
 
+typedef struct s_bitstream
+{
+	u8	*buffer;
+	u8	bit_pos;
+	u8	bytes_written;
+	u64	size;
+} t_bitstream;
+
+typedef struct s_prefix_code
+{
+	u16	code;
+	u8	length;
+} t_prefix_code;
+
+
 int	cmp(const void *a, const void *b);
 void	free_arr(t_symbol **arr, u16 count);
 void	free_tree(t_symbol *tree);
@@ -42,5 +57,6 @@ void	free_on_error(t_parser *data);
 void	print_tree(t_symbol *symbol);
 void	print_symbol(t_symbol *s);
 void	print_code(u16 code, u8 length);
+u8	init_bitstream(t_bitstream *bitstream);
 
 #endif
