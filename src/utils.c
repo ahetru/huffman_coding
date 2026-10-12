@@ -91,11 +91,35 @@ void print_code(u16 code, u8 length)
 u8 init_bitstream(t_bitstream *bitstream)
 {
 
-	bitstream->buffer = calloc(256, sizeof(u8));
+	bitstream->buffer = calloc(MEMO_BLOCK_SIZE, sizeof(u8));
 	if (bitstream->buffer == NULL)
 		return 1;
-	bitstream->bit_pos = 0;
-	bitstream->bytes_written = 0;
-	bitstream->size = 256;
+	bitstream->index= 0;
+	bitstream->size = MEMO_BLOCK_SIZE;
 	return 0;
+}
+
+char	*strjoin(char const *s1, char const *s2)
+{
+
+	u32	s1_len = strlen(s1);
+	u32	s2_len = strlen(s2);
+	u32	i = 0;
+	char *buffer = malloc(sizeof(char) * (s1_len + s2_len) + 1);
+	if (buffer == NULL)
+		return(NULL);
+	while (*s1 != '\0')
+	{
+		buffer[i] = *s1;
+		i++;
+		s1++;
+	}
+	while (*s2 != '\0')
+	{
+		buffer[i] = *s2;
+		i++;
+		s2++;
+	}
+	buffer[i] = '\0';
+	return buffer;
 }

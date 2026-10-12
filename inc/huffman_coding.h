@@ -16,8 +16,9 @@ typedef int16_t		i16;
 typedef int32_t		i32;
 typedef int64_t		i64;
 
-#define MAX_SYMBOLS	65535
-#define INTERNAL_NODE	65534
+# define MAX_SYMBOLS		65535
+# define INTERNAL_NODE		65534
+# define MEMO_BLOCK_SIZE	256
 
 typedef struct s_symbol
 {
@@ -38,8 +39,7 @@ typedef struct s_parse
 typedef struct s_bitstream
 {
 	u8	*buffer;
-	u8	bit_pos;
-	u8	bytes_written;
+	u64	index;
 	u64	size;
 } t_bitstream;
 
@@ -50,13 +50,14 @@ typedef struct s_prefix_code
 } t_prefix_code;
 
 
-int	cmp(const void *a, const void *b);
+int		cmp(const void *a, const void *b);
 void	free_arr(t_symbol **arr, u16 count);
 void	free_tree(t_symbol *tree);
 void	free_on_error(t_parser *data);
 void	print_tree(t_symbol *symbol);
 void	print_symbol(t_symbol *s);
 void	print_code(u16 code, u8 length);
-u8	init_bitstream(t_bitstream *bitstream);
+u8		init_bitstream(t_bitstream *bitstream);
+char	*strjoin(char const *s1, char const *s2);
 
 #endif

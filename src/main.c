@@ -48,7 +48,6 @@ u8	parse_file_and_set_symbols(FILE *f, t_parser *data)
 			arr_symbols[j] = s;
 			j++;
 		}
-	fclose(f);
 	data->arr_symbols = arr_symbols;
 
 	return 0;
@@ -108,8 +107,8 @@ void	set_prefix_codes(t_symbol *huffman_tree, u16 code, u8 code_length)
 	/* 	dprintf(1, "\n"); */
 	/* } */
 
-	set_prefix_codes(huffman_tree->left, code | (1 << code_length), code_length + 1);
-	set_prefix_codes(huffman_tree->right, code & ~ (1 << code_length), code_length + 1);
+	set_prefix_codes(huffman_tree->left, code | ((u16)1 << code_length), code_length + 1);
+	set_prefix_codes(huffman_tree->right, code & ~ ((u16)1 << code_length), code_length + 1);
 }
 
 void	set_dictionnary(t_prefix_code dictionnary[MAX_SYMBOLS], t_symbol *tree)
@@ -123,12 +122,45 @@ void	set_dictionnary(t_prefix_code dictionnary[MAX_SYMBOLS], t_symbol *tree)
 		dictionnary[tree->value].length = tree->code_length;
 	}
 	/* printf("value: %c code: %u, length: %u\n",tree->value, dictionnary[tree->value].code, dictionnary[tree->value].length); */
-	/* printf("Hello World!\n"); */
 
 	set_dictionnary(dictionnary, tree->left);
 	set_dictionnary(dictionnary, tree->right);
 }
-/* u8 encode_file(FILE *f, *t_bitstream bitstream, ) */
+
+u8 generate_encoded_file(FILE *infile, FILE *outfile, t_bitstream *bitstream, t_prefix_code codes[MAX_SYMBOLS])
+{
+	rewind(infile);
+	int c;	
+	u64 bit_count = 0;
+	while((c = fgetc(infile)) != EOF)
+	{
+		t_prefix_code code = codes[c];
+		if (bitstream->index == bitstream->size)
+		{
+			u8 *ptr = realloc(bitstream->buffer, bitstream->size + MEMO_BLOCK_SIZE);
+			if (ptr == NULL)
+			{
+				perror("memory realloc failed on bitstream buffer");
+				exit(EXIT_FAILURE); //TODO: handle properly
+			}
+			bitstream->buffer = ptr;
+			bitstream->size += MEMO_BLOCK_SIZE;
+		}
+		u8 byte = 0;
+		bit_count += code.length;
+		while(code.length)
+		{
+			byte += (code.code >> (8 * code.length)) &0xff;
+			code.length--;
+		}
+		bitstream->buffer[bitstream->index] = byte;
+		bitstream->index++;
+	}
+
+	u64 encoded_length = bit_count % 8 ? (bit_count / 8) + 1 : bit_count / 8;
+	fwrite(bitstream->buffer, sizeof(bitstream->buffer[0]), encoded_length, outfile);
+	return 0;
+}
 
 int	main(int argc, char **argv)
 {
@@ -138,17 +170,20 @@ int	main(int argc, char **argv)
 		return 0;
 	}
 
-	FILE *f = fopen(argv[1], "r");
-	if (f == NULL)
+	FILE *infile = fopen(argv[1], "r");
+	if (infile == NULL)
 	{
-		perror("Could not open file");
+		perror("could not open file");
 		return 1;
 	}
 
 	t_parser data = {0};
-	parse_file_and_set_symbols(f, &data);
+	parse_file_and_set_symbols(infile, &data);
 	if (data.arr_symbols == NULL)
+	{
+		fclose(infile);
 		return 1;
+	}
 
 	t_symbol *huffman_tree = build_huffman_tree(&data);
 	if (huffman_tree == NULL)
@@ -158,13 +193,13 @@ int	main(int argc, char **argv)
 	t_prefix_code value_to_prefix_code[MAX_SYMBOLS] = {0};
 	set_dictionnary(value_to_prefix_code, huffman_tree);
 
-	for (u16 i = 0; i < MAX_SYMBOLS; ++i)
-		if (value_to_prefix_code[i].length)
-		{
-			dprintf(1, "value %c: ", (char)i);
-			print_code(value_to_prefix_code[i].code, value_to_prefix_code[i].length);
-			dprintf(1, "\n");
-		}
+	// for (u16 i = 0; i < MAX_SYMBOLS; ++i)
+	// 	if (value_to_prefix_code[i].length)
+	// 	{
+	// 		dprintf(1, "value %c: ", (char)i);
+	// 		print_code(value_to_prefix_code[i].code, value_to_prefix_code[i].length);
+	// 		dprintf(1, "\n");
+	// 	}
 
 	t_bitstream bitstream = {0};
 	if (init_bitstream(&bitstream) == 1)
@@ -174,8 +209,27 @@ int	main(int argc, char **argv)
 		return 1;
 	}
 	
-	/* encode_file(f, &bitstream, huffman_tree); */
+	char *outfilename = strjoin(argv[1], ".hc");
+	if (outfilename == NULL)
+	{
+		printf("memory allocation failed on strjoin\n");
+		free_tree(huffman_tree);
+		return 1;
+	}
+	FILE *outfile = fopen(outfilename, "w+");
+	if (outfile == NULL)
+	{
+		perror("could not create outfile");
+		free(outfilename);
+		return 1;
+	}
+	
+	generate_encoded_file(infile, outfile, &bitstream, value_to_prefix_code);
+	free(outfilename);
+
 	free_tree(huffman_tree);
+	free(bitstream.buffer);
+	fclose(outfile);
 
 	return 0;
 }
