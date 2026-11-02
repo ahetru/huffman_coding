@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "huffman_coding.h"
 
 int	cmp(const void *a, const void *b)
@@ -77,7 +76,20 @@ void	print_symbol(t_symbol *s)
 	printf("frequency: %lu\n", s->frequency);
 }
 
-void print_code(u16 code, u8 length)
+u16	str_to_bits(const char *str)
+{
+	u16 code = 0;
+	for (u16 i = 0; i < strlen(str); ++i)
+	{
+		if (str[i] == '1')
+			code = code | (1 << i);
+		else
+			code = code & ~(1 << i);
+	}
+	return code;
+}
+
+void	print_code(u16 code, u8 length)
 {
 	for (u8 i = 0; i < length; ++i)
 	{
@@ -85,6 +97,19 @@ void print_code(u16 code, u8 length)
 			write(1, "1", 1);
 		else
 			write(1, "0", 1);
+	}
+}
+
+void print_prefix_codes(t_prefix_code *codes)
+{
+	for (u16 i = 0; i < MAX_SYMBOLS; ++i)
+	{
+		if (codes[i].length)
+		{
+			dprintf(1, "%c: ", (char)i);
+			print_code(codes[i].code, codes[i].length);
+			write(1, "\n", 1);
+		}
 	}
 }
 
@@ -107,7 +132,7 @@ char	*strjoin(char const *s1, char const *s2)
 	u32	i = 0;
 	char *buffer = malloc(sizeof(char) * (s1_len + s2_len) + 1);
 	if (buffer == NULL)
-		return(NULL);
+		return NULL;
 	while (*s1 != '\0')
 	{
 		buffer[i] = *s1;

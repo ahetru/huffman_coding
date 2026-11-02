@@ -1,5 +1,6 @@
 #include "huffman_coding.h"
-
+// TODO: replace 0 and 1 with HC_BOOL_TRUE AND HC_BOOL_FALSE
+// TODO: replace MAX_SYMBOLS with u8_size ?
 u8	parse_file_and_set_symbols(FILE *f, t_parser *data)
 {
 	u64 frequency[MAX_SYMBOLS] = {0};
@@ -11,7 +12,7 @@ u8	parse_file_and_set_symbols(FILE *f, t_parser *data)
 			data->count++;
 		frequency[c]++;
 	}
-	t_symbol ** arr_symbols = malloc(sizeof(t_symbol*) * data->count);
+	t_symbol **arr_symbols = malloc(sizeof(t_symbol*) * data->count);
 	if (arr_symbols == NULL)
 	{
 		fclose(f);
@@ -90,7 +91,7 @@ void	set_prefix_codes(t_symbol *huffman_tree, u16 code, u8 code_length)
 	}
 
 	set_prefix_codes(huffman_tree->left, code | ((u16)1 << code_length), code_length + 1);
-	set_prefix_codes(huffman_tree->right, code & ~ ((u16)1 << code_length), code_length + 1);
+	set_prefix_codes(huffman_tree->right, code & ~((u16)1 << code_length), code_length + 1);
 }
 
 void	set_dictionnary(t_prefix_code *codes, t_symbol *tree)
@@ -138,7 +139,7 @@ u8 generate_encoded_file(FILE *infile, FILE *outfile, t_bitstream *bitstream, t_
 		bitstream->index++;
 	}
 
-	const char header[] = "HC file\nprefix codes table: \n";
+	const char header[] = "HC file prefix codes table: \n";
 	fwrite(header, sizeof(header[0]),  strlen(header), outfile);
 	for (u16 i = 0; i < MAX_SYMBOLS; ++i)
 	{
@@ -156,13 +157,65 @@ u8 generate_encoded_file(FILE *infile, FILE *outfile, t_bitstream *bitstream, t_
 			}
 			// printf("buffer length for %c: %lu\n", (char)i, strlen(buffer));
 			// printf("codes[i].length: %u\n",codes[i].length);
-			fprintf(outfile, "value: %c | prefix code: %s | code length: %u\n", (char)i, buffer, codes[i].length);
+			fprintf(outfile, "%c|%s|%u\n", (char)i, buffer, codes[i].length);
 			free(buffer);
 		}
 	}
+	const char end_of_header[] = "end of header\n";
+	fwrite(end_of_header, sizeof(header[0]),  strlen(header), outfile);
 
 	u64 encoded_length = bit_count % 8 ? (bit_count / 8) + 1 : bit_count / 8;
 	fwrite(bitstream->buffer, sizeof(bitstream->buffer[0]), encoded_length, outfile);
+	return 0;
+}
+
+u8	decode_file(FILE *encoded)
+{
+	rewind(encoded);
+	char header_line[256] = {0};
+	const char header_title[] = "HC file prefix codes table: \n";
+	fgets(header_line, sizeof(header_line), encoded);
+	if (strcmp(header_line, header_title))
+	{
+		fprintf(stderr, "could not decode file, wrong format\n");
+		return 1;
+	}
+
+	t_prefix_code codes[MAX_SYMBOLS] = {0};
+	u8 end_of_header = 0;
+	while (fgets(header_line, sizeof(header_line), encoded))
+	{
+		if (!strcmp(header_line, "end of header\n"))
+		{
+			end_of_header = 1;
+			break;
+		}
+		char *symbol_str	= strtok(header_line, "|");
+		char *code_str 		= strtok(NULL, "|");
+		char *code_length_str	= strtok(NULL, "\n");
+
+		if (symbol_str == NULL || code_str == NULL || code_length_str == NULL)
+		{
+			fprintf(stderr, "could not decode file, wrong format\n");
+			return 1;
+		}
+		u16 symbol = (u16)symbol_str[0];
+		u16 code   = str_to_bits(code_str);
+		u16 length = atoi(code_length_str);
+
+		t_prefix_code prefix;
+		prefix.code = code;
+		prefix.length = length;
+		codes[symbol] = prefix;
+	}
+	if (!end_of_header)
+	{
+		fprintf(stderr, "could not decode file, wrong format\n");
+		return 1;
+	}
+	printf("Hello there\n");
+	print_prefix_codes(codes);
+
 	return 0;
 }
 
@@ -178,7 +231,7 @@ int	main(int argc, char **argv)
 	if (infile == NULL)
 	{
 		perror("could not open file");
-		return 1;
+			return 1;
 	}
 
 	t_parser data = {0};
@@ -212,17 +265,20 @@ int	main(int argc, char **argv)
 		free_tree(huffman_tree);
 		return 1;
 	}
-	FILE *outfile = fopen(outfilename, "w");
+	FILE *outfile = fopen(outfilename, "w+b");
 	if (outfile == NULL)
 	{
 		perror("could not create outfile");
+		free_tree(huffman_tree);
+		free(bitstream.buffer);
+		fclose(infile);
 		free(outfilename);
 		return 1;
 	}
+	free(outfilename);
 	
 	generate_encoded_file(infile, outfile, &bitstream, value_to_prefix_code);
-	free(outfilename);
-
+	decode_file(outfile);
 	free_tree(huffman_tree);
 	free(bitstream.buffer);
 	fclose(infile);

@@ -19,6 +19,8 @@ typedef int64_t		i64;
 # define MAX_SYMBOLS		65535
 # define INTERNAL_NODE		65534
 # define MEMO_BLOCK_SIZE	256
+# define HC_BOOL_FALSE		0	
+# define HC_BOOL_TRUE		1
 
 typedef struct s_symbol
 {
@@ -50,14 +52,16 @@ typedef struct s_prefix_code
 } t_prefix_code;
 
 
-int		cmp(const void *a, const void *b);
+int	cmp(const void *a, const void *b);
 void	free_arr(t_symbol **arr, u16 count);
 void	free_tree(t_symbol *tree);
 void	free_on_error(t_parser *data);
 void	print_tree(t_symbol *symbol);
 void	print_symbol(t_symbol *s);
 void	print_code(u16 code, u8 length);
-u8		init_bitstream(t_bitstream *bitstream);
+u8	init_bitstream(t_bitstream *bitstream);
 char	*strjoin(char const *s1, char const *s2);
+u16	str_to_bits(const char *str);
+void 	print_prefix_codes(t_prefix_code *codes);
 
 #endif
