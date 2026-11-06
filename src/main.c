@@ -146,7 +146,7 @@ u8 generate_encoded_file(FILE *infile, FILE *outfile, t_bitstream *bitstream, t_
 		if (codes[i].length)
 		{
 			// char buffer[codes[i].length];
-			char *buffer = malloc(sizeof(char) * codes[i].length);
+			char *buffer = malloc(sizeof(char) * codes[i].length + 1);
 			buffer[codes[i].length] = '\0';
 			for (u16 j = 0; j < codes[i].length; ++j)
 			{
@@ -162,7 +162,7 @@ u8 generate_encoded_file(FILE *infile, FILE *outfile, t_bitstream *bitstream, t_
 		}
 	}
 	const char end_of_header[] = "end of header\n";
-	fwrite(end_of_header, sizeof(header[0]),  strlen(header), outfile);
+	fwrite(end_of_header, sizeof(header[0]),  strlen(end_of_header), outfile);
 
 	u64 encoded_length = bit_count % 8 ? (bit_count / 8) + 1 : bit_count / 8;
 	fwrite(bitstream->buffer, sizeof(bitstream->buffer[0]), encoded_length, outfile);
@@ -213,7 +213,6 @@ u8	decode_file(FILE *encoded)
 		fprintf(stderr, "could not decode file, wrong format\n");
 		return 1;
 	}
-	printf("Hello there\n");
 	print_prefix_codes(codes);
 
 	return 0;
